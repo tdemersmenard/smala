@@ -1,0 +1,73 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------ *
+ * Identité de marque Smala — verrouillée. Une seule couleur d'accent. *
+ * ------------------------------------------------------------------ */
+@theme {
+  --color-sapin: #0e4f49;
+  --color-sapin-profond: #0a3b37;
+  --color-sarcelle: #8fbfb8;
+  --color-os: #f4f1ea;
+  --color-encre: #1e1b18;
+
+  --font-display: 'Cabinet Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Inter Tight', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    /* Lenis gère le smooth scroll ; on désactive le scroll natif du navigateur. */
+    scroll-behavior: auto;
+  }
+
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+
+  .lenis.lenis-stopped {
+    overflow: hidden;
+  }
+
+  body {
+    background-color: var(--color-sapin);
+    color: var(--color-os);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: var(--color-sarcelle);
+    color: var(--color-encre);
+  }
+
+  /* Anti-FOUC léger : si la CDN Cabinet Grotesk tarde, on garde une pile lisible. */
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Motif topographique signature : sapin sur sapin (~6% plus pâle). */
+.topo {
+  background-color: var(--color-sapin-profond);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='560' height='560' viewBox='0 0 560 560'%3E%3Cg fill='none' stroke='%2314544e' stroke-width='1.25'%3E%3Cpath d='M-40 120 C 120 60 260 190 420 120 S 640 60 700 130'/%3E%3Cpath d='M-40 180 C 120 120 260 250 420 180 S 640 120 700 190'/%3E%3Cpath d='M-40 240 C 120 180 260 310 420 240 S 640 180 700 250'/%3E%3Cpath d='M-40 300 C 120 240 260 370 420 300 S 640 240 700 310'/%3E%3Cpath d='M-40 360 C 120 300 260 430 420 360 S 640 300 700 370'/%3E%3Cpath d='M-40 420 C 120 360 260 490 420 420 S 640 360 700 430'/%3E%3Cpath d='M-40 480 C 120 420 260 550 420 480 S 640 420 700 490'/%3E%3Cpath d='M-40 540 C 120 480 260 610 420 540 S 640 480 700 550'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
