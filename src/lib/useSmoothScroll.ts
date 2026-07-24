@@ -3,6 +3,7 @@ import Lenis from 'lenis'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { prefersReducedMotion } from './useReducedMotion'
+import { setLenis } from './lenis'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -27,6 +28,13 @@ export function useSmoothScroll(): void {
     // Lenis notifie GSAP à chaque changement de scroll.
     lenis.on('scroll', ScrollTrigger.update)
 
+    // Partagé pour que VanBuild puisse geler le scroll pendant sa séquence.
+    setLenis(lenis)
+
+    // Handle de debug (dev uniquement) : pratique pour piloter/inspecter le
+    // scroll depuis la console. Absent des builds de production.
+    if (import.meta.env.DEV) (window as unknown as { __lenis?: Lenis }).__lenis = lenis
+
     const raf = (time: number) => {
       // gsap.ticker donne des secondes ; Lenis attend des millisecondes.
       lenis.raf(time * 1000)
@@ -36,6 +44,7 @@ export function useSmoothScroll(): void {
 
     return () => {
       gsap.ticker.remove(raf)
+      setLenis(null)
       lenis.destroy()
     }
   }, [])

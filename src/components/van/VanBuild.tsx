@@ -1,10 +1,12 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { Observer } from 'gsap/Observer'
 import { SmartImage } from '../SmartImage'
 import { useReducedMotion } from '../../lib/useReducedMotion'
+import { getLenis } from '../../lib/lenis'
 
-gsap.registerPlugin(ScrollTrigger)
+gsap.registerPlugin(ScrollTrigger, Observer)
 
 const VANS = [1, 2, 3, 4, 5].map((n) => `/construction/van/van-${n}.png`)
 const PIECE_BASE = '/construction/pieces/'
@@ -71,6 +73,14 @@ const WORDMARK = 'RIDE YOUR TRIBE'
 // Bascule du chapitre actif (temps timeline) : pendant les roulements + payoff.
 const CHAP_TIMES = [9, 28, 49, 90]
 
+// Étapes discrètes : chaque geste de scroll amène la timeline d'un état "posé"
+// au suivant (une pièce à la fois), peu importe la force du scroll. Temps
+// (unités timeline) où la van est calée avec la nouvelle pièce en place.
+// L'entrée de la section démarre à STEP_TIMES[0] ; la fin (payoff + mot-symbole)
+// est ajoutée à l'exécution via tl.duration().
+//  0: coquille en place · 1: isolation · 2: filage · 3: armoire+comptoir · 4: matelas
+const STEP_TIMES = [10, 30, 51, 73, 88]
+
 export function VanBuild() {
   const reduced = useReducedMotion()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -136,22 +146,16 @@ export function VanBuild() {
         // Respiration de la van (indépendante du scroll).
         if (bob) gsap.to(bob, { y: -2, rotation: 0.3, duration: 1.8, ease: 'sine.inOut', yoyo: true, repeat: -1 })
 
+        // Timeline en pause : elle n'est PLUS liée à la position du scroll. On la
+        // pilote nous-mêmes, une étape par geste (voir le contrôleur plus bas).
         const tl = gsap.timeline({
           defaults: { ease: 'none' },
-          scrollTrigger: {
-            trigger: stage,
-            start: 'top top',
-            end: '+=620%', // assez de scroll pour être fluide, sans traîner
-            scrub: 1.2, // réactif : chaque swipe fait avancer l'animation
-            pin: true,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
-            onUpdate: () => {
-              const t = tl.time()
-              let i = 0
-              for (const ct of CHAP_TIMES) if (t >= ct) i++
-              setActive(i)
-            },
+          paused: true,
+          onUpdate: () => {
+            const t = tl.time()
+            let i = 0
+            for (const ct of CHAP_TIMES) if (t >= ct) i++
+            setActive(i)
           },
         })
 
@@ -260,6 +264,108 @@ export function VanBuild() {
         // --- Payoff : l'image du lac fond par-dessus, « RIDE YOUR TRIBE ».
         tl.to(payoffEl, { autoAlpha: 1, duration: 8, ease: 'power2.inOut' }, 88)
         tl.to(letters, { autoAlpha: 1, y: 0, duration: 8, stagger: 0.4, ease: 'back.out(2)' }, 90)
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Contrôleur "une étape par geste".
+        //
+        // On épingle la section, on gèle le scroll (Lenis), et chaque geste
+        // (molette / trackpad / swipe / flèches) fait avancer la timeline d'UN
+        // cran seulement — quelle que soit la force du scroll. Un verrou
+        // `animating` ignore les gestes tant qu'un cran est en cours de lecture,
+        // donc un swipe violent = une seule pièce posée.
+        const steps = [...STEP_TIMES, tl.duration()]
+        const lenis = getLenis()
+        let index = 0
+        let animating = false
+
+        const goTo = (target: number) => {
+          const clamped = Math.max(0, Math.min(steps.length - 1, target))
+          if (clamped === index) return
+          animating = true
+          const from = tl.time()
+          const to = steps[clamped]
+          // Durée proportionnelle à la distance -> vitesse de lecture constante.
+          const dur = gsap.utils.clamp(0.6, 1.4, Math.abs(to - from) / 22)
+          index = clamped
+          tl.tweenTo(to, { duration: dur, ease: 'power2.inOut', onComplete: () => (animating = false) })
+        }
+
+        // Aux extrémités, on rend la main au scroll natif pour continuer la page.
+        const release = (dir: 1 | -1) => {
+          observer.disable()
+          const to = dir > 0 ? st.end + 2 : st.start - 2
+          if (lenis) {
+            lenis.start()
+            lenis.scrollTo(to)
+          } else {
+            window.scrollTo({ top: to })
+          }
+        }
+
+        const forward = () => {
+          if (animating) return
+          if (index >= steps.length - 1) release(1)
+          else goTo(index + 1)
+        }
+        const backward = () => {
+          if (animating) return
+          if (index <= 0) release(-1)
+          else goTo(index - 1)
+        }
+
+        const onKey = (e: KeyboardEvent) => {
+          if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+            e.preventDefault()
+            forward()
+          } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+            e.preventDefault()
+            backward()
+          }
+        }
+
+        // Observer : capte molette + tactile. `onDown` = scroll vers le bas =
+        // on avance (pose la pièce suivante) ; `onUp` = scroll vers le haut =
+        // on recule d'un cran.
+        const observer = Observer.create({
+          target: window,
+          type: 'wheel,touch',
+          tolerance: 12,
+          dragMinimum: 3,
+          preventDefault: true,
+          onDown: forward,
+          onUp: backward,
+        })
+        observer.disable()
+
+        const activate = (fromBottom: boolean) => {
+          index = fromBottom ? steps.length - 1 : 0
+          tl.time(steps[index])
+          lenis?.stop()
+          observer.enable()
+          window.addEventListener('keydown', onKey)
+        }
+        const deactivate = () => {
+          observer.disable()
+          window.removeEventListener('keydown', onKey)
+        }
+
+        const st = ScrollTrigger.create({
+          trigger: stage,
+          start: 'top top',
+          end: '+=60%', // "réserve" de scroll pour l'épinglage ; sautée à la sortie
+          pin: true,
+          anticipatePin: 1,
+          invalidateOnRefresh: true,
+          onEnter: () => activate(false),
+          onEnterBack: () => activate(true),
+          onLeave: deactivate,
+          onLeaveBack: deactivate,
+          // Sur resize : les positions en vw() sont recalculées, on re-rend l'étape.
+          onRefresh: () => {
+            tl.invalidate()
+            tl.time(steps[index])
+          },
+        })
 
         requestAnimationFrame(() => ScrollTrigger.refresh())
       })
