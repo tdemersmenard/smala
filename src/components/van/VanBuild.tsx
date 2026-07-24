@@ -284,10 +284,11 @@ export function VanBuild() {
           animating = true
           const from = tl.time()
           const to = steps[clamped]
-          // Durée proportionnelle à la distance -> vitesse de lecture constante.
-          const dur = gsap.utils.clamp(0.6, 1.4, Math.abs(to - from) / 22)
+          // Durée proportionnelle à la distance. Plus long + ease douce (sine)
+          // = transition ample et posée plutôt que sèche.
+          const dur = gsap.utils.clamp(1.2, 2.6, Math.abs(to - from) / 13)
           index = clamped
-          tl.tweenTo(to, { duration: dur, ease: 'power2.inOut', onComplete: () => (animating = false) })
+          tl.tweenTo(to, { duration: dur, ease: 'sine.inOut', onComplete: () => (animating = false) })
         }
 
         // Aux extrémités, on rend la main au scroll natif pour continuer la page.
