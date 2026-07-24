@@ -347,6 +347,9 @@ export function VanBuild() {
         const deactivate = () => {
           observer.disable()
           window.removeEventListener('keydown', onKey)
+          // Invariant de sécurité : hors de la section, Lenis DOIT tourner,
+          // sinon le scroll de toute la page reste gelé.
+          lenis?.start()
         }
 
         const st = ScrollTrigger.create({
@@ -354,7 +357,6 @@ export function VanBuild() {
           start: 'top top',
           end: '+=60%', // "réserve" de scroll pour l'épinglage ; sautée à la sortie
           pin: true,
-          anticipatePin: 1,
           invalidateOnRefresh: true,
           onEnter: () => activate(false),
           onEnterBack: () => activate(true),
